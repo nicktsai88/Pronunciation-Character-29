@@ -15,7 +15,8 @@
         "imports": {
             "react": "https://esm.sh/react@18.2.0",
             "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+            "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+            "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.2"
         }
     }
     </script>
@@ -57,6 +58,7 @@
         import React, { useState, useEffect, useMemo, useCallback } from 'react';
         import { createRoot } from 'react-dom/client';
         import { BookOpen, HelpCircle, CheckCircle, XCircle, ArrowRight, RefreshCcw, List, Sun, User, LogOut, Zap } from 'lucide-react';
+        import confetti from 'canvas-confetti';
 
         // STORAGE KEYS
         const STORAGE_PREFIX = 'Pronunciation-Character-29';
@@ -386,6 +388,36 @@
           return newArray;
         };
 
+        const playSound = (type) => {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.1); // C6
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } else {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.1); 
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            }
+        }
+
         const App = () => {
           const [mode, setMode] = useState('menu'); // menu, study, quiz
           const [currentUser, setCurrentUser] = useState(null);
@@ -668,6 +700,21 @@
             setSelections(newSelections);
             // Save immediately
             localStorage.setItem(userProgressKey, JSON.stringify(newSelections));
+
+            // Sound and Confetti
+            const currentQuestion = data.find(item => item.id === questionId);
+            const isCorrect = option === currentQuestion.answer;
+
+            if (isCorrect) {
+                playSound('success');
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            } else {
+                playSound('error');
+            }
           };
           
           const completedCount = Object.keys(selections).length;
